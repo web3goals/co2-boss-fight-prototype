@@ -1,0 +1,11 @@
+{
+  "name": "toolbox",
+  "version": "0.1.0",
+  "scripts": {
+    "start": "tsc && node ./dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.3",
+    "typescript": "^5.1.6"
+  }
+}
