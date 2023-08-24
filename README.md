@@ -1,3 +1,3 @@
-# ⚔️ CO2 Boss Fight
+# 👾 CO2 Boss Fight
 
 ...
