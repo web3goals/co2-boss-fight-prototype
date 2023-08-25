@@ -16,7 +16,12 @@ export default function Layout(props: {
   children: any;
 }) {
   return (
-    <Box sx={{ background: "linear-gradient(135deg, #DDA0D1, #FEF1DA);" }}>
+    <Box
+      sx={{
+        background:
+          "linear-gradient(135deg, #DDA0D1 0%, #ECD0F3 0.17%, #FEF3E1 100%, #FEF1DA 100%);",
+      }}
+    >
       <CssBaseline />
       <Head>
         <title>CO2 Boss Fight</title>
