@@ -81,8 +81,8 @@ function BossCard(props: { id: number; dataUri: string }) {
     return <FullWidthSkeleton />;
   }
 
-  const health = "❓"; // TODO: Define real data
-  const fighters = "❓"; // TODO: Define real data
+  const currentHealth = "3200"; // TODO: Define real data
+  const fighters = "42"; // TODO: Define real data
 
   return (
     <CardBox sx={{ display: "flex", flexDirection: "row" }}>
@@ -117,7 +117,7 @@ function BossCard(props: { id: number; dataUri: string }) {
         </Link>
         {/* Location */}
         <Typography>
-          Emits CO2 in <strong>{data.location}</strong>
+          Damage the environment in <strong>{data.location}</strong>
         </Typography>
         <Stack direction="row" spacing={2} mt={1.5}>
           {/* Health */}
@@ -132,11 +132,11 @@ function BossCard(props: { id: number; dataUri: string }) {
           >
             <Typography variant="body2">
               <strong>
-                {health} / {data.health}
+                {currentHealth} / {data.health}
               </strong>
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Health
+              Emitted CO2
             </Typography>
           </Stack>
           {/* Fighters */}
