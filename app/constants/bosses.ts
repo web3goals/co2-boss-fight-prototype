@@ -9,4 +9,5 @@ export const BOSS_IMAGES: { [key: string]: string } = {
   one: "/images/boss_1.png",
   two: "/images/boss_2.png",
   three: "/images/boss_3.png",
+  four: "/images/boss_4.png",
 };
