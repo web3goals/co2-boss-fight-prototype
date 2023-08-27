@@ -1,3 +1,4 @@
+import Layout from "@/components/layout";
 import { FGStorage } from "@co2-storage/js-api";
 
 export default function Sandbox() {
@@ -105,11 +106,11 @@ export default function Sandbox() {
   }
 
   return (
-    <div style={{ margin: "24px" }}>
+    <Layout maxWidth="sm">
       <h1>Welcome to sandbox!</h1>
       <div style={{ marginTop: "10px" }}>
         <button onClick={() => playWithCO2Storage()}>Test</button>
       </div>
-    </div>
+    </Layout>
   );
 }
