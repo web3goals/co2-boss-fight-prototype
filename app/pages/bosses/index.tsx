@@ -81,9 +81,6 @@ function BossCard(props: { id: number; dataUri: string }) {
     return <FullWidthSkeleton />;
   }
 
-  const currentHealth = "3200"; // TODO: Define real data
-  const fighters = "42"; // TODO: Define real data
-
   return (
     <CardBox sx={{ display: "flex", flexDirection: "row" }}>
       {/* Left part */}
@@ -111,16 +108,12 @@ function BossCard(props: { id: number; dataUri: string }) {
       >
         {/* Name */}
         <Link href={`/bosses/${props.id}`} passHref legacyBehavior>
-          <MuiLink variant="h6" fontWeight={700}>
+          <MuiLink variant="h4" fontWeight={700}>
             {data.name}
           </MuiLink>
         </Link>
-        {/* Location */}
-        <Typography>
-          Damage the environment in <strong>{data.location}</strong>
-        </Typography>
         <Stack direction="row" spacing={2} mt={1.5}>
-          {/* Health */}
+          {/* Location */}
           <Stack
             alignItems="center"
             sx={{
@@ -131,15 +124,13 @@ function BossCard(props: { id: number; dataUri: string }) {
             }}
           >
             <Typography variant="body2">
-              <strong>
-                {currentHealth} / {data.health}
-              </strong>
+              <strong>{data.location}</strong>
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Emitted CO2
+              City
             </Typography>
           </Stack>
-          {/* Fighters */}
+          {/* Health */}
           <Stack
             alignItems="center"
             sx={{
@@ -150,10 +141,10 @@ function BossCard(props: { id: number; dataUri: string }) {
             }}
           >
             <Typography variant="body2">
-              <strong>{fighters}</strong>
+              <strong>{data.health}</strong>
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Fighters
+              Emitted CO2
             </Typography>
           </Stack>
         </Stack>

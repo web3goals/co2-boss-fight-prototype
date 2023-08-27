@@ -1,3 +1,6 @@
+import AccountAvatar from "@/components/account/AccountAvatar";
+import AccountLink from "@/components/account/AccountLink";
+import EntityList from "@/components/entity/EntityList";
 import Layout from "@/components/layout";
 import {
   CardBox,
@@ -11,9 +14,9 @@ import useError from "@/hooks/useError";
 import useToasts from "@/hooks/useToast";
 import useUriDataLoader from "@/hooks/useUriDataLoader";
 import { theme } from "@/theme";
-import { BossUriData } from "@/types";
+import { BossFightRecord, BossUriData } from "@/types";
 import { chainToSupportedChainConfig } from "@/utils/chains";
-import { saveBossFightRecord } from "@/utils/co2storage";
+import { getBossFightRecords, saveBossFightRecord } from "@/utils/co2storage";
 import { calculateDistance } from "@/utils/geo";
 import {
   Avatar,
@@ -38,7 +41,9 @@ export default function Boss() {
   const { id } = router.query;
   const { chain } = useNetwork();
   const { isConnected } = useAccount();
-  const isAlive = true; // TODO: Define real data
+  const { handleError } = useError();
+  const [fights, setFights] = useState<BossFightRecord[] | undefined>();
+  const [currentHealth, setCurrentHealth] = useState<number | undefined>();
 
   /**
    * Define uri and uri data
@@ -52,18 +57,62 @@ export default function Boss() {
   });
   const { data: uriData } = useUriDataLoader<BossUriData>(uri);
 
+  /**
+   * Function to load fights from co2 storage
+   */
+  async function loadFights() {
+    try {
+      setFights(undefined);
+      if (id) {
+        getBossFightRecords(id as string)
+          .then((records) => setFights(records))
+          .catch((error) => handleError(error, true));
+      }
+    } catch (error: any) {
+      handleError(error, true);
+    }
+  }
+
+  /**
+   * Define fights
+   */
+  useEffect(() => {
+    loadFights();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  /**
+   * Define health
+   */
+  useEffect(() => {
+    setCurrentHealth(undefined);
+    if (uriData && fights) {
+      let currentHealth = uriData.health;
+      for (const fight of fights) {
+        currentHealth -= fight.co2;
+      }
+      setCurrentHealth(currentHealth);
+    }
+  }, [uriData, fights]);
+
   return (
     <Layout maxWidth="sm">
-      {uriData ? (
+      {uriData && fights && currentHealth !== undefined ? (
         <>
-          <BossDescription id={Number(id)} uriData={uriData} />
-          {isConnected && isAlive && (
+          <BossDescription
+            id={Number(id)}
+            uriData={uriData}
+            currentHealth={currentHealth}
+          />
+          {isConnected && currentHealth > 0 && (
             <BossTrackMovement
               id={Number(id)}
               uriData={uriData}
+              onTracked={() => {}}
               sx={{ mt: 4 }}
             />
           )}
+          <BossFights fights={fights} sx={{ mt: 4 }} />
         </>
       ) : (
         <FullWidthSkeleton />
@@ -75,10 +124,9 @@ export default function Boss() {
 function BossDescription(props: {
   id: number;
   uriData: BossUriData;
+  currentHealth: number;
   sx?: SxProps;
 }) {
-  const currentHealth = 3200; // TODO: Define real data
-
   return (
     <Box
       display="flex"
@@ -131,7 +179,7 @@ function BossDescription(props: {
           />
           <CircularProgress
             variant="determinate"
-            value={(currentHealth / props.uriData.health) * 100}
+            value={(props.currentHealth / props.uriData.health) * 100}
             sx={{
               color: "#000000",
               animationDuration: "550ms",
@@ -148,7 +196,7 @@ function BossDescription(props: {
         {/* Health label */}
         <Stack direction="column" alignItems="center">
           <Typography fontWeight={700}>
-            {currentHealth} / {props.uriData.health}
+            {props.currentHealth.toFixed(0)} / {props.uriData.health}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Emitted CO2
@@ -168,6 +216,7 @@ function BossDescription(props: {
 function BossTrackMovement(props: {
   id: number;
   uriData: BossUriData;
+  onTracked: () => void;
   sx?: SxProps;
 }) {
   const router = useRouter();
@@ -176,7 +225,7 @@ function BossTrackMovement(props: {
   const { handleError } = useError();
   const { showToastSuccess } = useToasts();
   const [isTracking, setIsTracking] = useState<boolean | undefined>();
-  const [isSavingTracking, setIsSavingTracking] = useState<boolean>(false); // TODO: Use it
+  const [isSavingTracking, setIsSavingTracking] = useState<boolean>(false);
   const [tracker, setTracker] = useState<NodeJS.Timeout | undefined>();
   const [currentPosition, setCurrentPosition] = useState<
     GeolocationPosition | undefined
@@ -220,8 +269,10 @@ function BossTrackMovement(props: {
         distance,
         distance * CO2_G_PER_KM
       );
-      showToastSuccess("You successfully damaged the boss");
-      // TODO: Update boss health and fighters data
+      showToastSuccess(
+        "You successfully damaged the boss, data will be updated soon"
+      );
+      props.onTracked();
     } catch (error: any) {
       handleError(error, true);
     } finally {
@@ -283,6 +334,7 @@ function BossTrackMovement(props: {
             variant="contained"
             sx={{ mt: 2 }}
             disabled={isSavingTracking}
+            loading={isSavingTracking}
             onClick={() => stopTracking()}
           >
             Stop
@@ -307,6 +359,64 @@ function BossTrackMovement(props: {
           Start
         </LargeLoadingButton>
       )}
+    </CardBox>
+  );
+}
+
+function BossFights(props: { fights: BossFightRecord[]; sx?: SxProps }) {
+  return (
+    <Box
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      sx={{ ...props.sx }}
+    >
+      <Typography variant="h4" fontWeight={700} mt={2}>
+        ⚔️ Fights
+      </Typography>
+      <Typography mt={1}>
+        that reduced the amount of CO2 emitted by Gustov
+      </Typography>
+      <EntityList
+        entities={props.fights}
+        renderEntityCard={(fight, index) => (
+          <BossFightCard key={index} fight={fight} />
+        )}
+        noEntitiesText="😐 no bosses"
+        sx={{ mt: 2 }}
+      />
+    </Box>
+  );
+}
+
+function BossFightCard(props: { fight: BossFightRecord }) {
+  const accountProfileUriData = undefined; // TODO: Define
+
+  return (
+    <CardBox sx={{ display: "flex", flexDirection: "row" }}>
+      {/* Left part */}
+      <Box>
+        <AccountAvatar
+          account={props.fight.account}
+          accountProfileUriData={accountProfileUriData}
+          size={64}
+          emojiSize={28}
+        />
+      </Box>
+      {/* Right part */}
+      <Box width={1} ml={1.5} display="flex" flexDirection="column">
+        <AccountLink
+          account={props.fight.account}
+          accountProfileUriData={accountProfileUriData}
+        />
+        <Typography variant="body2" color="text.secondary">
+          {new Date(props.fight.date).toLocaleString()}
+        </Typography>
+        <Typography variant="body2" mt={1}>
+          Tracked <strong>{props.fight.distance} km</strong> and reduced CO2
+          emissions by <strong>{props.fight.co2}g</strong>
+        </Typography>
+      </Box>
     </CardBox>
   );
 }
