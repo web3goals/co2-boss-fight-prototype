@@ -5,12 +5,15 @@ import {
   LargeLoadingButton,
 } from "@/components/styled";
 import { BOSS_IMAGES } from "@/constants/bosses";
+import { CO2_G_PER_KM } from "@/constants/co2";
 import { bossContractAbi } from "@/contracts/abi/bossContract";
 import useError from "@/hooks/useError";
+import useToasts from "@/hooks/useToast";
 import useUriDataLoader from "@/hooks/useUriDataLoader";
 import { theme } from "@/theme";
 import { BossUriData } from "@/types";
 import { chainToSupportedChainConfig } from "@/utils/chains";
+import { saveBossFightRecord } from "@/utils/co2storage";
 import { calculateDistance } from "@/utils/geo";
 import {
   Avatar,
@@ -25,7 +28,7 @@ import { Stack } from "@mui/system";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { useContractRead, useNetwork } from "wagmi";
+import { useAccount, useContractRead, useNetwork } from "wagmi";
 
 /**
  * Page with a boss.
@@ -34,6 +37,7 @@ export default function Boss() {
   const router = useRouter();
   const { id } = router.query;
   const { chain } = useNetwork();
+  const { isConnected } = useAccount();
   const isAlive = true; // TODO: Define real data
 
   /**
@@ -53,7 +57,13 @@ export default function Boss() {
       {uriData ? (
         <>
           <BossDescription id={Number(id)} uriData={uriData} />
-          {isAlive && <BossTrackMovement sx={{ mt: 4 }} />}
+          {isConnected && isAlive && (
+            <BossTrackMovement
+              id={Number(id)}
+              uriData={uriData}
+              sx={{ mt: 4 }}
+            />
+          )}
         </>
       ) : (
         <FullWidthSkeleton />
@@ -155,11 +165,18 @@ function BossDescription(props: {
   );
 }
 
-function BossTrackMovement(props: { sx?: SxProps }) {
+function BossTrackMovement(props: {
+  id: number;
+  uriData: BossUriData;
+  sx?: SxProps;
+}) {
   const router = useRouter();
   const { dev } = router.query;
+  const { address } = useAccount();
   const { handleError } = useError();
-  const [isTracking, setIsTracking] = useState(false);
+  const { showToastSuccess } = useToasts();
+  const [isTracking, setIsTracking] = useState<boolean | undefined>();
+  const [isSavingTracking, setIsSavingTracking] = useState<boolean>(false); // TODO: Use it
   const [tracker, setTracker] = useState<NodeJS.Timeout | undefined>();
   const [currentPosition, setCurrentPosition] = useState<
     GeolocationPosition | undefined
@@ -169,11 +186,9 @@ function BossTrackMovement(props: { sx?: SxProps }) {
   >();
   const [distance, setDistance] = useState(0.0);
 
-  /**
-   * Enabled or disable tracker for geo position
-   */
-  useEffect(() => {
-    if (isTracking) {
+  async function startTracking() {
+    try {
+      setIsTracking(true);
       const tracker = setInterval(() => {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -185,13 +200,37 @@ function BossTrackMovement(props: { sx?: SxProps }) {
         );
       }, 3_000);
       setTracker(tracker);
-    } else {
-      // TODO: Save distance using CO2 storage
-      clearTimeout(tracker);
-      setTracker(undefined);
+    } catch (error: any) {
+      handleError(error, true);
+      setIsTracking(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTracking]);
+  }
+
+  async function stopTracking() {
+    try {
+      setIsSavingTracking(true);
+      clearTimeout(tracker);
+      await saveBossFightRecord(
+        props.id.toString(),
+        props.uriData.image,
+        props.uriData.name,
+        props.uriData.location,
+        props.uriData.health,
+        address as `0x${string}`,
+        distance,
+        distance * CO2_G_PER_KM
+      );
+      showToastSuccess("You successfully damaged the boss");
+      // TODO: Update boss health and fighters data
+    } catch (error: any) {
+      handleError(error, true);
+    } finally {
+      setDistance(0.0);
+      setTracker(undefined);
+      setIsSavingTracking(false);
+      setIsTracking(false);
+    }
+  }
 
   /**
    * Update distance using position
@@ -229,7 +268,7 @@ function BossTrackMovement(props: { sx?: SxProps }) {
       </Typography>
       {!isTracking && (
         <Typography variant="body2" textAlign="center" mt={1}>
-          1 km reduces CO2 emissions by 192g
+          1 km reduces CO2 emissions by {CO2_G_PER_KM}g
         </Typography>
       )}
       {isTracking ? (
@@ -243,16 +282,18 @@ function BossTrackMovement(props: { sx?: SxProps }) {
           <LargeLoadingButton
             variant="contained"
             sx={{ mt: 2 }}
-            onClick={() => setIsTracking(false)}
+            disabled={isSavingTracking}
+            onClick={() => stopTracking()}
           >
             Stop
           </LargeLoadingButton>
           <Stack alignItems="center">
             <Typography variant="body2" fontWeight={700}>
-              {distance.toFixed(2)} km / {(distance * 192).toFixed(2)} g CO2
+              {distance.toFixed(2)} km / {(distance * CO2_G_PER_KM).toFixed(2)}{" "}
+              g CO2
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              You’ve tracked
+              You’ve tracked (reduced)
             </Typography>
           </Stack>
         </Stack>
@@ -260,7 +301,8 @@ function BossTrackMovement(props: { sx?: SxProps }) {
         <LargeLoadingButton
           variant="contained"
           sx={{ mt: 2 }}
-          onClick={() => setIsTracking(true)}
+          disabled={isSavingTracking}
+          onClick={() => startTracking()}
         >
           Start
         </LargeLoadingButton>
