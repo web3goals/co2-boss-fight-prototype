@@ -3,15 +3,17 @@ import { FGStorage } from "@co2-storage/js-api";
 
 const authType = "metamask";
 const ipfsNodeType = "client";
-const ipfsNodeAddr =
-  process.env.NODE_ENV == "production"
-    ? "/dns4/web1.co2.storage/tcp/5002/https"
-    : "/dns4/green.filecoin.space/tcp/5002/https";
+const ipfsNodeAddr = "/dns4/green.filecoin.space/tcp/5002/https";
+// const ipfsNodeAddr =
+//   process.env.NODE_ENV == "production"
+//     ? "/dns4/web1.co2.storage/tcp/5002/https"
+//     : "/dns4/green.filecoin.space/tcp/5002/https";
 // const ipfsNodeAddr = "/dns4/web2.co2.storage/tcp/5002/https";
-const fgApiUrl =
-  process.env.NODE_ENV == "production"
-    ? "https://web1.co2.storage"
-    : "https://green.filecoin.space";
+const fgApiUrl = "https://green.filecoin.space";
+// const fgApiUrl =
+//   process.env.NODE_ENV == "production"
+//     ? "https://web1.co2.storage"
+//     : "https://green.filecoin.space";
 // const fgApiUrl = "https://web2.co2.storage";
 
 const fgStorage = new FGStorage({
