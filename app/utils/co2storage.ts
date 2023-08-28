@@ -31,7 +31,18 @@ export async function getBossFightRecords(
   boss: string
 ): Promise<BossFightRecord[] | undefined> {
   const records: BossFightRecord[] = [];
-  const searchAssetsResponse = await fgStorage.searchAssets(chain);
+  const searchAssetsResponse = await fgStorage.searchAssets(
+    chain,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    25,
+    "timestamp",
+    "desc"
+  );
   for (const asset of searchAssetsResponse?.result?.assets) {
     let getAssetResponse = await fgStorage.getAsset(asset.block);
     if (getAssetResponse.result) {
