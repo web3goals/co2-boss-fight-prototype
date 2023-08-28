@@ -1,5 +1,7 @@
 import Layout from "@/components/layout";
+import { MediumLoadingButton } from "@/components/styled";
 import { FGStorage } from "@co2-storage/js-api";
+import { Stack, Typography } from "@mui/material";
 
 export default function Sandbox() {
   async function playWithCO2Storage() {
@@ -107,10 +109,17 @@ export default function Sandbox() {
 
   return (
     <Layout maxWidth="sm">
-      <h1>Welcome to sandbox!</h1>
-      <div style={{ marginTop: "10px" }}>
-        <button onClick={() => playWithCO2Storage()}>Test</button>
-      </div>
+      <Typography variant="h4" fontWeight={700}>
+        Welcome to Sandbox!
+      </Typography>
+      <Stack spacing={1} mt={2}>
+        <MediumLoadingButton
+          variant="outlined"
+          onClick={() => playWithCO2Storage()}
+        >
+          Play with CO2 Storage
+        </MediumLoadingButton>
+      </Stack>
     </Layout>
   );
 }
