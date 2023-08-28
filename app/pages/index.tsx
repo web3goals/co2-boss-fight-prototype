@@ -25,10 +25,12 @@ export default function Landing() {
         }}
       >
         {/* Left part */}
-        <Box sx={{ textAlign: { xs: "center", md: "start" }, mr: { md: 0 } }}>
-          <Typography variant="h1" mt={1}>
-            Fight the <strong>bosses that emit&nbsp;CO2</strong> and damage the
-            environment <strong>in your city</strong>
+        <Box sx={{ textAlign: { xs: "center", md: "start" }, mr: { md: 3 } }}>
+          <Typography variant="h1" fontWeight={700}>
+            Fight with friends against bosses
+          </Typography>
+          <Typography variant="h4" mt={2}>
+            that emit CO2 and damage the environment in your city
           </Typography>
           {address ? (
             <Link href={`/bosses`}>
