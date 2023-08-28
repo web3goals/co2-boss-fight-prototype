@@ -6,18 +6,23 @@ import {
   CardBox,
   FullWidthSkeleton,
   LargeLoadingButton,
+  ThickDivider,
 } from "@/components/styled";
 import { BOSS_IMAGES } from "@/constants/bosses";
 import { CO2_G_PER_KM } from "@/constants/co2";
 import { bossContractAbi } from "@/contracts/abi/bossContract";
+import { hypercertsContractAbi } from "@/contracts/abi/hypercertsContract";
 import useError from "@/hooks/useError";
+import useIpfs from "@/hooks/useIpfs";
 import useToasts from "@/hooks/useToast";
 import useUriDataLoader from "@/hooks/useUriDataLoader";
 import { theme } from "@/theme";
 import { BossFightRecord, BossUriData } from "@/types";
+import { isAddressesEqual } from "@/utils/addresses";
 import { chainToSupportedChainConfig } from "@/utils/chains";
 import { getBossFightRecords, saveBossFightRecord } from "@/utils/co2storage";
 import { calculateDistance } from "@/utils/geo";
+import { prepareHypercertUriData } from "@/utils/hypercerts";
 import {
   Avatar,
   Box,
@@ -29,9 +34,18 @@ import {
 import { grey } from "@mui/material/colors";
 import { Stack } from "@mui/system";
 import Link from "next/link";
-import { useRouter } from "next/router";
+import router, { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { useAccount, useContractRead, useNetwork } from "wagmi";
+import { zeroAddress } from "viem";
+import {
+  useAccount,
+  useContractEvent,
+  useContractRead,
+  useContractWrite,
+  useNetwork,
+  usePrepareContractWrite,
+  useWaitForTransaction,
+} from "wagmi";
 
 /**
  * Page with a boss.
@@ -40,10 +54,20 @@ export default function Boss() {
   const router = useRouter();
   const { id } = router.query;
   const { chain } = useNetwork();
-  const { isConnected } = useAccount();
   const { handleError } = useError();
   const [fights, setFights] = useState<BossFightRecord[] | undefined>();
   const [currentHealth, setCurrentHealth] = useState<number | undefined>();
+
+  /**
+   * Define owner
+   */
+  const { data: owner } = useContractRead({
+    address: chainToSupportedChainConfig(chain).contracts.boss,
+    abi: bossContractAbi,
+    functionName: "ownerOf",
+    args: [id ? BigInt(id as string) : BigInt(0)],
+    enabled: id !== undefined,
+  });
 
   /**
    * Define uri and uri data
@@ -91,28 +115,36 @@ export default function Boss() {
       for (const fight of fights) {
         currentHealth -= fight.co2;
       }
-      setCurrentHealth(currentHealth);
+      setCurrentHealth(currentHealth > 0 ? currentHealth : 0);
     }
   }, [uriData, fights]);
 
   return (
     <Layout maxWidth="sm">
-      {uriData && fights && currentHealth !== undefined ? (
+      {owner && uriData && fights && currentHealth !== undefined ? (
         <>
           <BossDescription
             id={Number(id)}
             uriData={uriData}
             currentHealth={currentHealth}
           />
-          {isConnected && currentHealth > 0 && (
-            <BossTrackMovement
+          {currentHealth > 0 ? (
+            <BossTrackMovementBlock
               id={Number(id)}
               uriData={uriData}
               onTracked={() => {}}
               sx={{ mt: 4 }}
             />
+          ) : (
+            <BossDefeatedBlock
+              id={Number(id)}
+              owner={owner}
+              uriData={uriData}
+              fights={fights}
+              sx={{ mt: 4 }}
+            />
           )}
-          <BossFights fights={fights} sx={{ mt: 4 }} />
+          <BossFights uriData={uriData} fights={fights} sx={{ mt: 4 }} />
         </>
       ) : (
         <FullWidthSkeleton />
@@ -213,7 +245,7 @@ function BossDescription(props: {
   );
 }
 
-function BossTrackMovement(props: {
+function BossTrackMovementBlock(props: {
   id: number;
   uriData: BossUriData;
   onTracked: () => void;
@@ -363,7 +395,185 @@ function BossTrackMovement(props: {
   );
 }
 
-function BossFights(props: { fights: BossFightRecord[]; sx?: SxProps }) {
+function BossDefeatedBlock(props: {
+  id: number;
+  owner: `0x${string}`;
+  uriData: BossUriData;
+  fights: BossFightRecord[];
+  sx?: SxProps;
+}) {
+  const { address } = useAccount();
+
+  return (
+    <CardBox
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      sx={{ ...props.sx }}
+    >
+      <Typography variant="h6" textAlign="center">
+        🎉 The <strong>boss is defeated</strong> and the environment in{" "}
+        <strong>{props.uriData.location} is safe</strong>
+      </Typography>
+      {isAddressesEqual(address, props.owner) && (
+        <>
+          <ThickDivider sx={{ mt: 2 }} />
+          <BossCreateHypercertForm
+            id={props.id}
+            uriData={props.uriData}
+            fights={props.fights}
+            sx={{ mt: 2 }}
+          />
+        </>
+      )}
+    </CardBox>
+  );
+}
+
+function BossCreateHypercertForm(props: {
+  id: number;
+  uriData: BossUriData;
+  fights: BossFightRecord[];
+  sx?: SxProps;
+}) {
+  const { chain } = useNetwork();
+  const { address } = useAccount();
+  const { handleError } = useError();
+  const { uploadJsonToIpfs, uploadJsonToIpfsAlternative } = useIpfs();
+  const { showToastSuccess } = useToasts();
+  const [isFormSubmitting, setIsFormSubmitting] = useState(false);
+  const [hypercertUri, setHypercertUri] = useState("");
+  const [hypercert, setHypercert] = useState<string | undefined>();
+
+  /**
+   * Handle form submit
+   */
+  async function submit() {
+    try {
+      setIsFormSubmitting(true);
+      // Define fighters
+      const fighters = new Set<`0x${string}`>();
+      for (const fight of props.fights) {
+        fighters.add(fight.account);
+      }
+      // Upload data to ipfs
+      const hypercertUriData = prepareHypercertUriData(
+        props.id,
+        props.uriData.name,
+        props.uriData.location,
+        `${global.window.location.origin}/bosses/${props.id}`,
+        Array.from(fighters)
+      );
+      const { uri } = await uploadJsonToIpfs(hypercertUriData);
+      const { uri: uriAlternative } = await uploadJsonToIpfsAlternative(
+        hypercertUriData
+      );
+      setHypercertUri(uri);
+    } catch (error: any) {
+      handleError(error, true);
+      setIsFormSubmitting(false);
+    }
+  }
+
+  /**
+   * Contract states to mint hypercert
+   */
+  const { config: contractConfig } = usePrepareContractWrite({
+    address: chainToSupportedChainConfig(chain).contracts.hypercerts,
+    abi: hypercertsContractAbi,
+    functionName: "mintClaim",
+    args: [address as `0x${string}`, BigInt(10000), hypercertUri, 2],
+    chainId: chainToSupportedChainConfig(chain).chain.id,
+  });
+  const {
+    data: contractWriteData,
+    isLoading: isContractWriteLoading,
+    write: contractWrite,
+  } = useContractWrite(contractConfig);
+  const { isLoading: isTransactionLoading, isSuccess: isTransactionSuccess } =
+    useWaitForTransaction({
+      hash: contractWriteData?.hash,
+    });
+
+  /**
+   * Mint hypercert if uri is ready
+   */
+  useEffect(() => {
+    if (hypercertUri !== "" && contractWrite && !isContractWriteLoading) {
+      contractWrite?.();
+      setHypercertUri("");
+      setIsFormSubmitting(false);
+    }
+  }, [hypercertUri, contractWrite, isContractWriteLoading]);
+
+  /**
+   * Listen contract events to get id of minted hypercert
+   */
+  useContractEvent({
+    address: chainToSupportedChainConfig(chain).contracts.hypercerts,
+    abi: hypercertsContractAbi,
+    eventName: "TransferSingle",
+    listener(log) {
+      if (
+        log[0].args.operator === address &&
+        log[0].args.from === zeroAddress &&
+        log[0].args.to === zeroAddress
+      ) {
+        setHypercert(log[0].args.id?.toString());
+        showToastSuccess("Hypercert is created");
+      }
+    },
+  });
+
+  /**
+   * Form states
+   */
+  const isFormLoading =
+    isFormSubmitting || isContractWriteLoading || isTransactionLoading;
+  const isFormDisabled =
+    !contractWrite || isFormLoading || isTransactionSuccess;
+
+  return (
+    <Box
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      sx={{ ...props.sx }}
+    >
+      {hypercert ? (
+        <LargeLoadingButton
+          href={`https://testnet.hypercerts.org/app/view#claimId=0x822f17a9a5eecfd66dbaff7946a8071c265d1d07-${hypercert}`}
+          target="_blank"
+          variant="contained"
+        >
+          Open hypercert
+        </LargeLoadingButton>
+      ) : (
+        <>
+          <Typography color="text.secondary" textAlign="center">
+            🎖️ Create a hypercert to keep in history the impact of all the
+            fighters (contributors) who participated in this battle
+          </Typography>
+          <LargeLoadingButton
+            variant="contained"
+            sx={{ mt: 2 }}
+            loading={isFormLoading}
+            disabled={isFormDisabled}
+            onClick={() => submit()}
+          >
+            Create
+          </LargeLoadingButton>
+        </>
+      )}
+    </Box>
+  );
+}
+
+function BossFights(props: {
+  uriData: BossUriData;
+  fights: BossFightRecord[];
+  sx?: SxProps;
+}) {
   return (
     <Box
       display="flex"
@@ -375,14 +585,14 @@ function BossFights(props: { fights: BossFightRecord[]; sx?: SxProps }) {
         ⚔️ Fights
       </Typography>
       <Typography mt={1}>
-        that reduced the amount of CO2 emitted by Gustov
+        that reduced the amount of CO2 emitted by {props.uriData.name}
       </Typography>
       <EntityList
         entities={props.fights}
         renderEntityCard={(fight, index) => (
           <BossFightCard key={index} fight={fight} />
         )}
-        noEntitiesText="😐 no bosses"
+        noEntitiesText="😐 no fights"
         sx={{ mt: 2 }}
       />
     </Box>
@@ -399,8 +609,8 @@ function BossFightCard(props: { fight: BossFightRecord }) {
         <AccountAvatar
           account={props.fight.account}
           accountProfileUriData={accountProfileUriData}
-          size={64}
-          emojiSize={28}
+          size={48}
+          emojiSize={20}
         />
       </Box>
       {/* Right part */}
