@@ -12,12 +12,13 @@ import { BOSS_IMAGES } from "@/constants/bosses";
 import { CO2_G_PER_KM } from "@/constants/co2";
 import { bossContractAbi } from "@/contracts/abi/bossContract";
 import { hypercertsContractAbi } from "@/contracts/abi/hypercertsContract";
+import { profileContractAbi } from "@/contracts/abi/profileContract";
 import useError from "@/hooks/useError";
 import useIpfs from "@/hooks/useIpfs";
 import useToasts from "@/hooks/useToast";
 import useUriDataLoader from "@/hooks/useUriDataLoader";
 import { theme } from "@/theme";
-import { BossFightRecord, BossUriData } from "@/types";
+import { BossFightRecord, BossUriData, ProfileUriData } from "@/types";
 import { isAddressesEqual } from "@/utils/addresses";
 import { chainToSupportedChainConfig } from "@/utils/chains";
 import { getBossFightRecords, saveBossFightRecord } from "@/utils/co2storage";
@@ -33,6 +34,7 @@ import {
 } from "@mui/material";
 import { grey } from "@mui/material/colors";
 import { Stack } from "@mui/system";
+import { chain } from "lodash";
 import Link from "next/link";
 import router, { useRouter } from "next/router";
 import { useEffect, useState } from "react";
@@ -600,7 +602,19 @@ function BossFights(props: {
 }
 
 function BossFightCard(props: { fight: BossFightRecord }) {
-  const accountProfileUriData = undefined; // TODO: Define
+  const { chain } = useNetwork();
+
+  /**
+   * Define account profile uri data
+   */
+  const { data: profileUri } = useContractRead({
+    address: chainToSupportedChainConfig(chain).contracts.profile,
+    abi: profileContractAbi,
+    functionName: "getURI",
+    args: [props.fight.account],
+  });
+  const { data: accountProfileUriData } =
+    useUriDataLoader<ProfileUriData>(profileUri);
 
   return (
     <CardBox sx={{ display: "flex", flexDirection: "row" }}>
