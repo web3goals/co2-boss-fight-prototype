@@ -4,7 +4,6 @@ export const BOSS_DIFFICULTIES: { [key: string]: number } = {
   hard: 100_000,
 };
 
-// TODO: Add files to images
 export const BOSS_IMAGES: { [key: string]: string } = {
   one: "/images/boss_1.png",
   two: "/images/boss_2.png",
