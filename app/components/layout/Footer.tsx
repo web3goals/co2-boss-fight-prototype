@@ -30,14 +30,6 @@ function Copyright(props: { sx?: SxProps }) {
       >
         CO2 Boss Fight © 2023
       </Typography>
-      <Typography
-        color="primary.contrastText"
-        variant="body2"
-        textAlign="center"
-        mt={0.5}
-      >
-        Fight the bosses that emit CO2 and damage the environment in your city
-      </Typography>
     </Container>
   );
 }
