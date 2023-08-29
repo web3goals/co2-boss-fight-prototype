@@ -4,7 +4,7 @@ Fight with friends against bosses that emit CO2 and damage the environment in yo
 
 ## 🔗 Artifacts
 
-- [Application](https://co2-boss-fight.vercel.app/)
+- Application - [co2-boss-fight.vercel.app](https://co2-boss-fight.vercel.app/)
 - Contracts:
   - Boss - [0xc254cDd94b834966DB91e99bb6aE073Df3F55Bd7](https://goerli.etherscan.io/address/0xc254cDd94b834966DB91e99bb6aE073Df3F55Bd7)
   - Profile - [0x0702Ae9aff3031a242233F01F1FB35b03AF18a50](https://goerli.etherscan.io/address/0x0702Ae9aff3031a242233F01F1FB35b03AF18a50)
