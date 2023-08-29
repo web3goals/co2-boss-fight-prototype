@@ -6,8 +6,8 @@ Fight with friends against bosses that emit CO2 and damage the environment in yo
 
 - [Application](https://co2-boss-fight.vercel.app/)
 - Contracts:
-  - [Boss](https://goerli.etherscan.io/address/0xc254cDd94b834966DB91e99bb6aE073Df3F55Bd7)
-  - [Profile](https://goerli.etherscan.io/address/0x0702Ae9aff3031a242233F01F1FB35b03AF18a50)
+  - Boss - [0xc254cDd94b834966DB91e99bb6aE073Df3F55Bd7](https://goerli.etherscan.io/address/0xc254cDd94b834966DB91e99bb6aE073Df3F55Bd7)
+  - Profile - [0x0702Ae9aff3031a242233F01F1FB35b03AF18a50](https://goerli.etherscan.io/address/0x0702Ae9aff3031a242233F01F1FB35b03AF18a50)
 - Chain in CO2.Storage - `CO2 Boss Fight`
 
 ## ✨ About
